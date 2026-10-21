@@ -10,8 +10,13 @@ public static class AllowDurations
     public static TimeSpan UntilEndOfDay(DateTimeOffset nowUtc, TimeZoneInfo tz)
     {
         var local = TimeZoneInfo.ConvertTime(nowUtc, tz);
-        var nextMidnightLocal = new DateTimeOffset(local.Date.AddDays(1), local.Offset);
-        var remaining = nextMidnightLocal - local;
-        return remaining < TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : remaining;
+        var nextMidnightLocal = DateTime.SpecifyKind(local.Date.AddDays(1), DateTimeKind.Unspecified);
+        // 자정이 DST 로 존재하지 않는 시각이면 한 시간씩 뒤로 민다 (실제로는 거의 없음)
+        while (tz.IsInvalidTime(nextMidnightLocal)) nextMidnightLocal = nextMidnightLocal.AddHours(1);
+        var nextMidnightUtc = TimeZoneInfo.ConvertTimeToUtc(nextMidnightLocal, tz);
+        var remaining = nextMidnightUtc - nowUtc.UtcDateTime;
+        if (remaining < TimeSpan.FromMinutes(1)) return TimeSpan.FromMinutes(1);
+        var max = TimeSpan.FromMinutes(MaxMinutes);
+        return remaining > max ? max : remaining;
     }
 }

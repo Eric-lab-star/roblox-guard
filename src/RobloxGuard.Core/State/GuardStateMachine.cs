@@ -65,6 +65,8 @@ public sealed class GuardStateMachine
 
     public void Restore(GuardMode mode, DateTimeOffset? allowUntil)
     {
+        // 허용인데 만료 시각이 없으면 신뢰할 수 없는 상태 → 차단으로 복귀 (fail closed)
+        if (mode == GuardMode.Allowed && allowUntil is null) mode = GuardMode.Blocked;
         Mode = mode;
         AllowUntil = mode == GuardMode.Allowed ? allowUntil : null;
         var maxUntil = _clock.UtcNow.Add(MaxDuration);

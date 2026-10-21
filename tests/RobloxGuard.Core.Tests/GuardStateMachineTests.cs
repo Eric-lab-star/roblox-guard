@@ -158,6 +158,14 @@ public class GuardStateMachineCapTests
     }
 
     [Fact]
+    public void Restore_AllowedWithoutUntil_FallsBackToBlocked()
+    {
+        var sm = new GuardStateMachine(new FakeClock());
+        sm.Restore(GuardMode.Allowed, null);
+        Assert.Equal(GuardMode.Blocked, sm.Mode);
+    }
+
+    [Fact]
     public void Allow_ZeroOrNegative_Throws()
     {
         var sm = new GuardStateMachine(new FakeClock());

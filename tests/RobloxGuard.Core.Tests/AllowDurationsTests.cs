@@ -23,6 +23,15 @@ public class AllowDurationsTests
         => Assert.Equal(TimeSpan.FromHours(24), AllowDurations.UntilEndOfDay(LocalToUtc(0, 0), Seoul));
 
     [Fact]
+    public void UntilEndOfDay_DstSpringForward_UsesZoneRules()
+    {
+        // 미국 동부 2026-03-08 02:00 → 03:00 건너뜀. 01:00 EST 에서 자정까지는 22시간.
+        var eastern = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        var nowUtc = new DateTimeOffset(2026, 3, 8, 6, 0, 0, TimeSpan.Zero); // 01:00 EST
+        Assert.Equal(TimeSpan.FromHours(22), AllowDurations.UntilEndOfDay(nowUtc, eastern));
+    }
+
+    [Fact]
     public void Presets_AndLimits()
     {
         Assert.Equal(new[] { 30, 60, 120 }, AllowDurations.PresetMinutes);

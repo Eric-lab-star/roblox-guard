@@ -1,3 +1,4 @@
+using RobloxGuard.Core;
 using RobloxGuard.Core.Detection;
 
 namespace RobloxGuard.Core.Tests;
@@ -30,8 +31,16 @@ public class RobloxDetectorTests
         => Assert.False(RobloxDetector.IsRoblox(P("roblox_notes", @"C:\Tools\roblox_notes.exe", "Acme")));
 
     [Fact]
-    public void SelfProcesses_AreNeverRoblox()
-        => Assert.False(RobloxDetector.IsRoblox(P("RobloxGuard.Tray", @"C:\Program Files\RobloxGuard\RobloxGuard.Tray.exe", "Roblox Corporation")));
+    public void SelfProcesses_UnderInstallDir_AreNeverRoblox()
+        => Assert.False(RobloxDetector.IsRoblox(P("RobloxGuard.Tray", Path.Combine(GuardPaths.InstallDir, "RobloxGuard.Tray.exe"), "Roblox Corporation")));
+
+    [Fact]
+    public void RenamedRobloxExe_WithGuardLikeName_OutsideInstallDir_IsRoblox()
+        => Assert.True(RobloxDetector.IsRoblox(P("RobloxGuardPlayer", @"C:\Users\kid\AppData\Local\Roblox\Versions\v1\RobloxGuardPlayer.exe", "Roblox Corporation")));
+
+    [Fact]
+    public void CurrentProcess_IsNeverRoblox()
+        => Assert.False(RobloxDetector.IsRoblox(new ProcessInfo(Environment.ProcessId, "RobloxPlayerBeta", null, "Roblox Corporation", 1)));
 
     [Fact]
     public void ExtraName_IsRoblox()
