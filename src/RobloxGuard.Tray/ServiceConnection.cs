@@ -1,0 +1,100 @@
+using System.IO.Pipes;
+using RobloxGuard.Core;
+using RobloxGuard.Core.Protocol;
+
+namespace RobloxGuard.Tray;
+
+/// <summary>
+/// 서비스와의 파이프 통신. 2초마다 상태를 조회하고, 별도 연결로 이벤트를 구독한다.
+/// 끊기면 아이콘을 회색으로 두고 3초마다 재연결한다.
+/// 모든 이벤트는 UI 스레드로 마샬링해 호출자에게 전달한다.
+/// </summary>
+internal sealed class ServiceConnection : IDisposable
+{
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan Reconnect = TimeSpan.FromSeconds(3);
+
+    private readonly SynchronizationContext _ui;
+    private readonly CancellationTokenSource _cts = new();
+
+    public ServiceConnection(SynchronizationContext ui) => _ui = ui;
+
+    public bool IsConnected { get; private set; }
+
+    /// <summary>2초 주기 상태. 연결 실패 시 null.</summary>
+    public event Action<PipeResponse?>? StatusUpdated;
+    /// <summary>구독 연결로 받은 이벤트.</summary>
+    public event Action<PipeEvent>? EventReceived;
+
+    public void Start()
+    {
+        _ = Task.Run(() => PollLoopAsync(_cts.Token));
+        _ = Task.Run(() => SubscribeLoopAsync(_cts.Token));
+    }
+
+    public async Task<PipeResponse> SendAsync(PipeRequest req)
+    {
+        try
+        {
+            await using var pipe = new NamedPipeClientStream(".", GuardPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await pipe.ConnectAsync(3000);
+            using var reader = new StreamReader(pipe, leaveOpen: true);
+            var writer = new StreamWriter(pipe) { AutoFlush = true };
+            await writer.WriteLineAsync(ProtocolJson.Serialize(req));
+            var line = await reader.ReadLineAsync();
+            return (line is null ? null : ProtocolJson.Deserialize<PipeResponse>(line)) ?? PipeResponse.Fail("disconnected");
+        }
+        catch (Exception)
+        {
+            return PipeResponse.Fail("disconnected");
+        }
+    }
+
+    private async Task PollLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            var res = await SendAsync(new PipeRequest { Type = RequestTypes.GetStatus });
+            IsConnected = res.Ok && res.Error != "disconnected";
+            Post(() => StatusUpdated?.Invoke(IsConnected ? res : null));
+            try { await Task.Delay(PollInterval, token); }
+            catch (OperationCanceledException) { break; }
+        }
+    }
+
+    private async Task SubscribeLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await using var pipe = new NamedPipeClientStream(".", GuardPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                await pipe.ConnectAsync(3000, token);
+                using var reader = new StreamReader(pipe, leaveOpen: true);
+                var writer = new StreamWriter(pipe) { AutoFlush = true };
+                await writer.WriteLineAsync(ProtocolJson.Serialize(new PipeRequest { Type = RequestTypes.Subscribe }));
+                await reader.ReadLineAsync(token); // 첫 ok 응답
+
+                string? line;
+                while (!token.IsCancellationRequested && (line = await reader.ReadLineAsync(token)) is not null)
+                {
+                    var ev = ProtocolJson.Deserialize<PipeEvent>(line);
+                    if (ev is not null) Post(() => EventReceived?.Invoke(ev));
+                }
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception) { /* 끊김 — 재연결 */ }
+
+            try { await Task.Delay(Reconnect, token); }
+            catch (OperationCanceledException) { break; }
+        }
+    }
+
+    private void Post(Action action) => _ui.Post(_ => action(), null);
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}
