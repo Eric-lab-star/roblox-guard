@@ -18,9 +18,12 @@ namespace RobloxGuard.Service;
 /// </summary>
 public sealed class PipeServer : BackgroundService
 {
-    private const int MaxServerInstances = 16;
+    private const int MaxServerInstances = 32;
+    private const int MaxSubscribers = 4;      // 장기 연결(Subscribe) 동시 개수 상한
     private const int MaxRequestBytes = 8 * 1024;
-    private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(2);
+
+    private int _subscriberCount;
 
     private readonly GuardEngine _engine;
     private readonly ILogger<PipeServer> _log;
@@ -170,6 +173,26 @@ public sealed class PipeServer : BackgroundService
     };
 
     private async Task HandleSubscribeAsync(NamedPipeServerStream server, StreamWriter writer, CancellationToken token)
+    {
+        // 장기 연결 상한. 일반 사용자가 Subscribe 를 여러 개 붙들어 인스턴스를 고갈시키고
+        // 부모의 제어 연결을 막는 것을 방지한다. 초과하면 즉시 거절해 인스턴스를 돌려준다.
+        if (Interlocked.Increment(ref _subscriberCount) > MaxSubscribers)
+        {
+            Interlocked.Decrement(ref _subscriberCount);
+            await writer.WriteLineAsync(ProtocolJson.Serialize(PipeResponse.Fail(ErrorCodes.BadRequest)));
+            return;
+        }
+        try
+        {
+            await SubscribeLoopAsync(server, writer, token);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _subscriberCount);
+        }
+    }
+
+    private async Task SubscribeLoopAsync(NamedPipeServerStream server, StreamWriter writer, CancellationToken token)
     {
         using var conn = CancellationTokenSource.CreateLinkedTokenSource(token);
         // 구독자가 끊기면 즉시 알아채도록 읽기를 병행한다(다음 이벤트를 기다리지 않음).

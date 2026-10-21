@@ -49,22 +49,34 @@ Copy-Item (Join-Path $src "*.json") $installDir -Force -ErrorAction SilentlyCont
 # 미리 만들어 둔 폴더가 정션(reparse point)이거나 신뢰할 수 없는 소유자이면,
 # 재귀 삭제(정션을 따라가 엉뚱한 곳을 지울 수 있음) 대신 그 자리에서 옆으로 '이름만' 바꿔 치운다.
 $trustedSids = @('S-1-5-18', 'S-1-5-32-544')  # SYSTEM, Administrators
-if (Test-Path $dataDir) {
-    $item = Get-Item -LiteralPath $dataDir -Force
-    $isReparse = ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+function Test-TrustedDir($path) {
+    # Get-Item -Force 는 매달린 정션(dangling junction)도 본다. Test-Path 는 못 볼 수 있다.
+    $it = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    if ($null -eq $it) { return $null }  # 없음
+    $isReparse = ($it.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
     $ownerSid = $null
-    try { $ownerSid = (Get-Acl -LiteralPath $dataDir).GetOwner([Security.Principal.SecurityIdentifier]).Value } catch {}
-    if ($isReparse -or ($ownerSid -notin $trustedSids)) {
-        $asideName = "RobloxGuard.untrusted-" + (Get-Date -Format "yyyyMMddHHmmss")
-        Write-Host "기존 데이터 폴더를 신뢰할 수 없습니다(소유자=$ownerSid, 정션=$isReparse). 옆으로 치웁니다: $asideName" -ForegroundColor Yellow
-        Rename-Item -LiteralPath $dataDir -NewName $asideName  # 이름만 바꾸므로 정션 대상을 건드리지 않음
-    }
+    try { $ownerSid = (Get-Acl -LiteralPath $path).GetOwner([Security.Principal.SecurityIdentifier]).Value } catch {}
+    return -not $isReparse -and ($ownerSid -in $trustedSids)
 }
-if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
-# 이제 $dataDir 은 우리 소유의(또는 새로 만든 빈) 폴더다. 재귀(/T) 없이 ACL 을 설정한다.
-# OI/CI 상속 플래그로 이후 서비스가 만드는 파일도 같은 권한을 물려받는다.
-icacls $dataDir /setowner "*S-1-5-32-544" | Out-Null
-icacls $dataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+
+$state = Test-TrustedDir $dataDir
+if ($state -eq $false) {
+    # 존재하지만 정션이거나 신뢰할 수 없는 소유자. 재귀 삭제(정션을 따라감) 대신 이름만 바꿔 치운다.
+    $asideName = "RobloxGuard.untrusted-" + (Get-Date -Format "yyyyMMddHHmmss")
+    Write-Host "기존 데이터 폴더를 신뢰할 수 없습니다(정션 또는 외부 소유자). 옆으로 치웁니다: $asideName" -ForegroundColor Yellow
+    Rename-Item -LiteralPath $dataDir -NewName $asideName  # 이름만 바꾸므로 정션 대상을 건드리지 않음
+    $state = $null
+}
+if ($null -eq $state) { New-Item -ItemType Directory -Path $dataDir -ErrorAction Stop | Out-Null }
+
+# 생성·확보 후 다시 확인: 최종 경로가 정션이 아니고 신뢰 소유자여야 한다. 아니면 중단.
+$item = Get-Item -LiteralPath $dataDir -Force
+if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "데이터 폴더가 정션입니다. 설치를 중단합니다: $dataDir"
+}
+# /L: icacls 가 reparse point 를 따라가지 않도록. OI/CI 로 이후 생성 파일도 상속받는다.
+icacls $dataDir /setowner "*S-1-5-32-544" /L | Out-Null
+icacls $dataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /L | Out-Null
 Write-Host "데이터 폴더 권한 설정: $dataDir" -ForegroundColor Cyan
 
 # 4. 비밀번호 설정

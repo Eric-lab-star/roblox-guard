@@ -98,23 +98,27 @@ internal sealed class ServiceConnection : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetNamedPipeServerProcessId(SafePipeHandle handle, out uint processId);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ProcessIdToSessionId(uint processId, out uint sessionId);
+
     /// <summary>
     /// 비밀번호를 보내기 전에 서버가 진짜 서비스인지 확인한다.
-    /// 일반 사용자는 세션 0에 프로세스를 띄울 수 없으므로, 서버가 세션 0이면 신뢰한다.
-    /// 서버가 사용자 세션(>0)에서 돌면 가로채기 시도로 보고 거절한다.
-    /// 조회 자체가 실패하면(환경 이상) 통과시킨다 — 주 방어선은 서버의 FirstPipeInstance 선점이다.
+    /// 일반 사용자는 세션 0에 프로세스를 띄울 수 없으므로, 서버가 세션 0일 때만 신뢰한다.
+    /// 확인할 수 없거나 세션 0이 아니면 거절한다(fail closed) — 가로채기한 가짜 서버에
+    /// 비밀번호를 흘리지 않는 것이 우선이다. ProcessIdToSessionId 는 핸들을 열지 않아
+    /// 일반 사용자도 SYSTEM 프로세스의 세션을 조회할 수 있다.
     /// </summary>
     private static bool ServerIsTrustworthy(NamedPipeClientStream pipe)
     {
         try
         {
-            if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var pid)) return true;
-            using var server = Process.GetProcessById((int)pid);
-            return server.SessionId == 0;
+            if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var pid)) return false;
+            if (!ProcessIdToSessionId(pid, out var sessionId)) return false;
+            return sessionId == 0;
         }
         catch (Exception)
         {
-            return true; // 조회 불가 — fail open (서버측 선점 방지가 주 방어선)
+            return false; // 확인 불가 → fail closed
         }
     }
 
