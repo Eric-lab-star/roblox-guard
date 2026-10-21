@@ -17,7 +17,8 @@ builder.Services.AddWindowsService(o => o.ServiceName = "RobloxGuard");
 builder.Services.AddSingleton<IClock, SystemClock>();
 builder.Services.AddSingleton(_ => GuardConfig.Load(GuardPaths.ConfigPath));
 builder.Services.AddSingleton(_ => new AttemptLog(GuardPaths.LogPath));
-builder.Services.AddSingleton<INetworkEnforcer, NullNetworkEnforcer>();
+builder.Services.AddSingleton<WindowsNetworkEnforcer>();
+builder.Services.AddSingleton<INetworkEnforcer>(sp => sp.GetRequiredService<WindowsNetworkEnforcer>());
 builder.Services.AddSingleton<NullLockoutLauncher>();
 builder.Services.AddSingleton<ILockoutLauncher>(sp => sp.GetRequiredService<NullLockoutLauncher>());
 builder.Services.AddSingleton(sp =>
@@ -35,6 +36,7 @@ builder.Services.AddSingleton(sp =>
     return engine;
 });
 builder.Services.AddHostedService<ProcessWatcher>();
+builder.Services.AddHostedService<MaintenanceService>();
 
 var host = builder.Build();
 host.Run();
