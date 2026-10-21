@@ -4,4 +4,8 @@ namespace RobloxGuard.Core.State;
 public sealed record GuardStateSnapshot(GuardMode Mode, DateTimeOffset? AllowUntil, int FailedAttempts, DateTimeOffset? LockedUntil)
 {
     public static GuardStateSnapshot Default => new(GuardMode.Blocked, null, 0, null);
+
+    public static GuardStateSnapshot Load(string path) => JsonFile.LoadOrDefault(path, () => Default);
+
+    public void Save(string path) => JsonFile.SaveAtomic(path, this);
 }
