@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobloxGuard.Core.Tests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobloxGuard.Service", "src\RobloxGuard.Service\RobloxGuard.Service.csproj", "{436EEFC9-6D00-41EE-8812-8B60B646F074}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobloxGuard.Lockout", "src\RobloxGuard.Lockout\RobloxGuard.Lockout.csproj", "{6358DEC0-AEC4-4051-BB1F-E56750AE90F9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,10 +36,15 @@ Global
 		{436EEFC9-6D00-41EE-8812-8B60B646F074}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{436EEFC9-6D00-41EE-8812-8B60B646F074}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{436EEFC9-6D00-41EE-8812-8B60B646F074}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6358DEC0-AEC4-4051-BB1F-E56750AE90F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6358DEC0-AEC4-4051-BB1F-E56750AE90F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6358DEC0-AEC4-4051-BB1F-E56750AE90F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6358DEC0-AEC4-4051-BB1F-E56750AE90F9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{6572443E-03CD-4B1E-937A-A493891CAC0A} = {C57DF523-86C9-4417-B883-0E58E60CBF39}
 		{92DD8D79-D4C8-48F3-B2CF-D240714DB440} = {C157C36C-DD29-4A2B-A69B-F41CFCCDABDC}
 		{436EEFC9-6D00-41EE-8812-8B60B646F074} = {C57DF523-86C9-4417-B883-0E58E60CBF39}
+		{6358DEC0-AEC4-4051-BB1F-E56750AE90F9} = {C57DF523-86C9-4417-B883-0E58E60CBF39}
 	EndGlobalSection
 EndGlobal

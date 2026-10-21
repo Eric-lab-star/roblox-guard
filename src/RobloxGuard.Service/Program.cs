@@ -19,8 +19,9 @@ builder.Services.AddSingleton(_ => GuardConfig.Load(GuardPaths.ConfigPath));
 builder.Services.AddSingleton(_ => new AttemptLog(GuardPaths.LogPath));
 builder.Services.AddSingleton<WindowsNetworkEnforcer>();
 builder.Services.AddSingleton<INetworkEnforcer>(sp => sp.GetRequiredService<WindowsNetworkEnforcer>());
-builder.Services.AddSingleton<NullLockoutLauncher>();
-builder.Services.AddSingleton<ILockoutLauncher>(sp => sp.GetRequiredService<NullLockoutLauncher>());
+builder.Services.AddSingleton<WindowsLockoutLauncher>();
+builder.Services.AddSingleton<ILockoutLauncher>(sp => sp.GetRequiredService<WindowsLockoutLauncher>());
+builder.Services.AddSingleton<ISweepable>(sp => sp.GetRequiredService<WindowsLockoutLauncher>());
 builder.Services.AddSingleton(sp =>
 {
     var engine = new GuardEngine(
@@ -33,12 +34,16 @@ builder.Services.AddSingleton(sp =>
     var log = sp.GetRequiredService<ILogger<GuardEngine>>();
     engine.StateChanged += s => Safe(() => s.Save(GuardPaths.StatePath), log, "state.json 저장 실패");
     engine.ConfigChanged += c => Safe(() => c.Save(GuardPaths.ConfigPath), log, "config.json 저장 실패");
+    sp.GetRequiredService<WindowsLockoutLauncher>().LockoutEnded += engine.OnLockoutEnded;
     return engine;
 });
 builder.Services.AddHostedService<ProcessWatcher>();
 builder.Services.AddHostedService<MaintenanceService>();
 
 var host = builder.Build();
+host.Services.GetRequiredService<GuardEngine>(); // LockoutEnded 연결을 위해 미리 생성
+var lifetime = host.Services.GetRequiredService<IHostApplicationLifetime>();
+lifetime.ApplicationStopping.Register(() => host.Services.GetRequiredService<WindowsLockoutLauncher>().KillAll());
 host.Run();
 return 0;
 

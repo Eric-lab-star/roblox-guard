@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>RobloxGuard.Lockout</AssemblyName>
+    <RootNamespace>RobloxGuard.Lockout</RootNamespace>
+  </PropertyGroup>
+
+</Project>
