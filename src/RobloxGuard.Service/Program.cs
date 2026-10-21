@@ -39,6 +39,7 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddHostedService<ProcessWatcher>();
 builder.Services.AddHostedService<MaintenanceService>();
+builder.Services.AddHostedService<PipeServer>();
 
 var host = builder.Build();
 host.Services.GetRequiredService<GuardEngine>(); // LockoutEnded 연결을 위해 미리 생성
