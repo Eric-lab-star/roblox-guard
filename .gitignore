@@ -1,0 +1,10 @@
+# build output
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+TestResults/
+# plan workspace (scratch)
+.superpowers/

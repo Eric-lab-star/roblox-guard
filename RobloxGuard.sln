@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C57DF523-86C9-4417-B883-0E58E60CBF39}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobloxGuard.Core", "src\RobloxGuard.Core\RobloxGuard.Core.csproj", "{6572443E-03CD-4B1E-937A-A493891CAC0A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C157C36C-DD29-4A2B-A69B-F41CFCCDABDC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobloxGuard.Core.Tests", "tests\RobloxGuard.Core.Tests\RobloxGuard.Core.Tests.csproj", "{92DD8D79-D4C8-48F3-B2CF-D240714DB440}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6572443E-03CD-4B1E-937A-A493891CAC0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6572443E-03CD-4B1E-937A-A493891CAC0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6572443E-03CD-4B1E-937A-A493891CAC0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6572443E-03CD-4B1E-937A-A493891CAC0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{92DD8D79-D4C8-48F3-B2CF-D240714DB440}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{92DD8D79-D4C8-48F3-B2CF-D240714DB440}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{92DD8D79-D4C8-48F3-B2CF-D240714DB440}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{92DD8D79-D4C8-48F3-B2CF-D240714DB440}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6572443E-03CD-4B1E-937A-A493891CAC0A} = {C57DF523-86C9-4417-B883-0E58E60CBF39}
+		{92DD8D79-D4C8-48F3-B2CF-D240714DB440} = {C157C36C-DD29-4A2B-A69B-F41CFCCDABDC}
+	EndGlobalSection
+EndGlobal
