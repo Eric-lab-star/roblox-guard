@@ -45,8 +45,19 @@ Copy-Item (Join-Path $src "*.dll") $installDir -Force -ErrorAction SilentlyConti
 Copy-Item (Join-Path $src "*.json") $installDir -Force -ErrorAction SilentlyContinue
 
 # 3. 데이터 폴더 + 제한 ACL (SYSTEM/Administrators 전체, 일반 사용자 접근 없음)
+# 선점 방지: 이미 있고 SYSTEM/Administrators 소유가 아니면(일반 사용자가 미리 만든 경우) 통째로 지운다.
+if (Test-Path $dataDir) {
+    $owner = (Get-Acl $dataDir).Owner
+    if ($owner -notmatch 'SYSTEM' -and $owner -notmatch 'Administrators') {
+        Write-Host "기존 데이터 폴더의 소유자가 신뢰할 수 없습니다($owner). 다시 만듭니다." -ForegroundColor Yellow
+        Remove-Item $dataDir -Recurse -Force
+    }
+}
 New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-icacls $dataDir /inheritance:r /grant "*S-1-5-18:(OI)(CI)F" /grant "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+# 소유권을 Administrators 로 가져오고, 상속을 끊고, SYSTEM/Administrators 에게만 전체 권한을 재설정한다.
+icacls $dataDir /setowner "*S-1-5-32-544" /T /C | Out-Null
+icacls $dataDir /reset /T /C | Out-Null
+icacls $dataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /T /C | Out-Null
 Write-Host "데이터 폴더 권한 설정: $dataDir" -ForegroundColor Cyan
 
 # 4. 비밀번호 설정

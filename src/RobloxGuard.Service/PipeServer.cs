@@ -24,13 +24,15 @@ public sealed class PipeServer : BackgroundService
 
     private readonly GuardEngine _engine;
     private readonly ILogger<PipeServer> _log;
-    private bool _ownsName;
 
     public PipeServer(GuardEngine engine, ILogger<PipeServer> log)
     {
         _engine = engine;
         _log = log;
     }
+
+    // 살아 있는 서버 인스턴스 수. 0이 되면 다음 생성 때 FirstPipeInstance 로 이름을 다시 주장한다.
+    private int _liveInstances;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -39,13 +41,14 @@ public sealed class PipeServer : BackgroundService
             NamedPipeServerStream server;
             try
             {
-                server = CreateServer(firstInstance: !_ownsName);
-                _ownsName = true;
+                // 현재 쥔 인스턴스가 없으면(최초/오류 복구) 이름을 FirstPipeInstance 로 다시 주장한다.
+                server = CreateServer(firstInstance: Volatile.Read(ref _liveInstances) == 0);
+                Interlocked.Increment(ref _liveInstances);
             }
             catch (IOException ex)
             {
-                // 이름이 이미 사용 중 = 누군가 파이프를 선점함. 제어 채널은 열지 않지만 차단은 계속된다.
-                _log.LogCritical(ex, "파이프 이름 '{Pipe}' 이 이미 사용 중입니다(선점 의심). 제어 채널을 열지 않고 재시도합니다.", GuardPaths.PipeName);
+                // 이름 선점 의심. 차단(ProcessWatcher)은 파이프와 무관하게 계속된다(fail closed).
+                _log.LogCritical(ex, "파이프 이름 '{Pipe}' 이 이미 사용 중입니다(선점 의심). 재시도합니다.", GuardPaths.PipeName);
                 try { await Task.Delay(2000, stoppingToken); } catch (OperationCanceledException) { break; }
                 continue;
             }
@@ -62,18 +65,24 @@ public sealed class PipeServer : BackgroundService
             }
             catch (OperationCanceledException)
             {
-                await server.DisposeAsync();
+                await DisposeInstanceAsync(server);
                 break;
             }
             catch (Exception ex)
             {
                 _log.LogDebug(ex, "연결 대기 실패");
-                await server.DisposeAsync();
+                await DisposeInstanceAsync(server);
                 continue;
             }
 
             _ = HandleConnectionAsync(server, stoppingToken);
         }
+    }
+
+    private async Task DisposeInstanceAsync(NamedPipeServerStream server)
+    {
+        await server.DisposeAsync();
+        Interlocked.Decrement(ref _liveInstances);
     }
 
     private static NamedPipeServerStream CreateServer(bool firstInstance)
@@ -129,7 +138,7 @@ public sealed class PipeServer : BackgroundService
         catch (OperationCanceledException) { }
         catch (IOException) { /* 상대가 끊음 */ }
         catch (Exception ex) { _log.LogDebug(ex, "연결 처리 실패"); }
-        finally { await server.DisposeAsync(); }
+        finally { await DisposeInstanceAsync(server); }
     }
 
     /// <summary>개행까지 읽되 최대 바이트를 넘으면 중단한다(무한 입력 방어).</summary>
