@@ -19,8 +19,12 @@ public sealed class GuardStateMachine
     public GuardMode Mode { get; private set; } = GuardMode.Blocked;
     public DateTimeOffset? AllowUntil { get; private set; }
 
+    private static readonly TimeSpan MaxDuration = TimeSpan.FromMinutes(AllowDurations.MaxMinutes);
+
     public GuardEvent Allow(TimeSpan duration)
     {
+        if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
+        if (duration > MaxDuration) duration = MaxDuration;
         Mode = GuardMode.Allowed;
         AllowUntil = _clock.UtcNow.Add(duration);
         ResetWarnings(duration);
@@ -63,6 +67,8 @@ public sealed class GuardStateMachine
     {
         Mode = mode;
         AllowUntil = mode == GuardMode.Allowed ? allowUntil : null;
+        var maxUntil = _clock.UtcNow.Add(MaxDuration);
+        if (AllowUntil > maxUntil) AllowUntil = maxUntil;
         if (Mode == GuardMode.Allowed && AllowUntil is not null)
             ResetWarnings(AllowUntil.Value - _clock.UtcNow);
         else

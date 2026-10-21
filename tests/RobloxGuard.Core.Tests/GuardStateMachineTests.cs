@@ -136,3 +136,31 @@ public class GuardStateMachineTests
         Assert.Equal(GuardMode.Allowed, _sm.Mode);
     }
 }
+
+public class GuardStateMachineCapTests
+{
+    [Fact]
+    public void Allow_BeyondMax_IsClampedTo1440Minutes()
+    {
+        var clock = new FakeClock();
+        var sm = new GuardStateMachine(clock);
+        sm.Allow(TimeSpan.FromDays(30));
+        Assert.Equal(clock.UtcNow.AddMinutes(1440), sm.AllowUntil);
+    }
+
+    [Fact]
+    public void Restore_BeyondMax_IsClampedTo1440Minutes()
+    {
+        var clock = new FakeClock();
+        var sm = new GuardStateMachine(clock);
+        sm.Restore(GuardMode.Allowed, clock.UtcNow.AddDays(30));
+        Assert.Equal(clock.UtcNow.AddMinutes(1440), sm.AllowUntil);
+    }
+
+    [Fact]
+    public void Allow_ZeroOrNegative_Throws()
+    {
+        var sm = new GuardStateMachine(new FakeClock());
+        Assert.Throws<ArgumentOutOfRangeException>(() => sm.Allow(TimeSpan.Zero));
+    }
+}
