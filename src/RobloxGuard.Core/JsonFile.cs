@@ -32,8 +32,17 @@ public static class JsonFile
         var full = Path.GetFullPath(path);
         var dir = Path.GetDirectoryName(full)!;
         Directory.CreateDirectory(dir);
-        var tmp = full + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(value, Options));
-        File.Move(tmp, full, overwrite: true);
+        var tmp = Path.Combine(dir, $".{Path.GetFileName(full)}.{Path.GetRandomFileName()}.tmp");
+        try
+        {
+            using (var fs = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var w = new StreamWriter(fs))
+                w.Write(JsonSerializer.Serialize(value, Options));
+            File.Move(tmp, full, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
     }
 }

@@ -15,6 +15,7 @@ public sealed class GuardConfig
     public List<string> ExtraProcessNames { get; set; } = new();
     public List<string> ExtraBlockedHosts { get; set; } = new();
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsConfigured => Password is not null;
 
     public static GuardConfig Load(string path)
