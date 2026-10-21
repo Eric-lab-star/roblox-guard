@@ -45,19 +45,26 @@ Copy-Item (Join-Path $src "*.dll") $installDir -Force -ErrorAction SilentlyConti
 Copy-Item (Join-Path $src "*.json") $installDir -Force -ErrorAction SilentlyContinue
 
 # 3. 데이터 폴더 + 제한 ACL (SYSTEM/Administrators 전체, 일반 사용자 접근 없음)
-# 선점 방지: 이미 있고 SYSTEM/Administrators 소유가 아니면(일반 사용자가 미리 만든 경우) 통째로 지운다.
+# 선점·정션 공격 방지: 일반 사용자는 ProgramData 에 하위 폴더를 만들 수 있다.
+# 미리 만들어 둔 폴더가 정션(reparse point)이거나 신뢰할 수 없는 소유자이면,
+# 재귀 삭제(정션을 따라가 엉뚱한 곳을 지울 수 있음) 대신 그 자리에서 옆으로 '이름만' 바꿔 치운다.
+$trustedSids = @('S-1-5-18', 'S-1-5-32-544')  # SYSTEM, Administrators
 if (Test-Path $dataDir) {
-    $owner = (Get-Acl $dataDir).Owner
-    if ($owner -notmatch 'SYSTEM' -and $owner -notmatch 'Administrators') {
-        Write-Host "기존 데이터 폴더의 소유자가 신뢰할 수 없습니다($owner). 다시 만듭니다." -ForegroundColor Yellow
-        Remove-Item $dataDir -Recurse -Force
+    $item = Get-Item -LiteralPath $dataDir -Force
+    $isReparse = ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    $ownerSid = $null
+    try { $ownerSid = (Get-Acl -LiteralPath $dataDir).GetOwner([Security.Principal.SecurityIdentifier]).Value } catch {}
+    if ($isReparse -or ($ownerSid -notin $trustedSids)) {
+        $asideName = "RobloxGuard.untrusted-" + (Get-Date -Format "yyyyMMddHHmmss")
+        Write-Host "기존 데이터 폴더를 신뢰할 수 없습니다(소유자=$ownerSid, 정션=$isReparse). 옆으로 치웁니다: $asideName" -ForegroundColor Yellow
+        Rename-Item -LiteralPath $dataDir -NewName $asideName  # 이름만 바꾸므로 정션 대상을 건드리지 않음
     }
 }
-New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-# 소유권을 Administrators 로 가져오고, 상속을 끊고, SYSTEM/Administrators 에게만 전체 권한을 재설정한다.
-icacls $dataDir /setowner "*S-1-5-32-544" /T /C | Out-Null
-icacls $dataDir /reset /T /C | Out-Null
-icacls $dataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /T /C | Out-Null
+if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
+# 이제 $dataDir 은 우리 소유의(또는 새로 만든 빈) 폴더다. 재귀(/T) 없이 ACL 을 설정한다.
+# OI/CI 상속 플래그로 이후 서비스가 만드는 파일도 같은 권한을 물려받는다.
+icacls $dataDir /setowner "*S-1-5-32-544" | Out-Null
+icacls $dataDir /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
 Write-Host "데이터 폴더 권한 설정: $dataDir" -ForegroundColor Cyan
 
 # 4. 비밀번호 설정

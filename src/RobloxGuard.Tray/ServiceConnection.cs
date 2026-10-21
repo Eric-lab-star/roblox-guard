@@ -1,4 +1,7 @@
+using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using RobloxGuard.Core;
 using RobloxGuard.Core.Protocol;
 
@@ -38,6 +41,7 @@ internal sealed class ServiceConnection : IDisposable
         {
             await using var pipe = new NamedPipeClientStream(".", GuardPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(3000);
+            if (!ServerIsTrustworthy(pipe)) return PipeResponse.Fail("disconnected");
             using var reader = new StreamReader(pipe, leaveOpen: true);
             var writer = new StreamWriter(pipe) { AutoFlush = true };
             await writer.WriteLineAsync(ProtocolJson.Serialize(req));
@@ -70,6 +74,7 @@ internal sealed class ServiceConnection : IDisposable
             {
                 await using var pipe = new NamedPipeClientStream(".", GuardPaths.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                 await pipe.ConnectAsync(3000, token);
+                if (!ServerIsTrustworthy(pipe)) { await Task.Delay(Reconnect, token); continue; }
                 using var reader = new StreamReader(pipe, leaveOpen: true);
                 var writer = new StreamWriter(pipe) { AutoFlush = true };
                 await writer.WriteLineAsync(ProtocolJson.Serialize(new PipeRequest { Type = RequestTypes.Subscribe }));
@@ -87,6 +92,29 @@ internal sealed class ServiceConnection : IDisposable
 
             try { await Task.Delay(Reconnect, token); }
             catch (OperationCanceledException) { break; }
+        }
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetNamedPipeServerProcessId(SafePipeHandle handle, out uint processId);
+
+    /// <summary>
+    /// 비밀번호를 보내기 전에 서버가 진짜 서비스인지 확인한다.
+    /// 일반 사용자는 세션 0에 프로세스를 띄울 수 없으므로, 서버가 세션 0이면 신뢰한다.
+    /// 서버가 사용자 세션(>0)에서 돌면 가로채기 시도로 보고 거절한다.
+    /// 조회 자체가 실패하면(환경 이상) 통과시킨다 — 주 방어선은 서버의 FirstPipeInstance 선점이다.
+    /// </summary>
+    private static bool ServerIsTrustworthy(NamedPipeClientStream pipe)
+    {
+        try
+        {
+            if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out var pid)) return true;
+            using var server = Process.GetProcessById((int)pid);
+            return server.SessionId == 0;
+        }
+        catch (Exception)
+        {
+            return true; // 조회 불가 — fail open (서버측 선점 방지가 주 방어선)
         }
     }
 
