@@ -52,3 +52,24 @@ public class LoginThrottleTests
         Assert.True(t.IsLocked);
     }
 }
+
+public class LoginThrottleRestoreTests
+{
+    [Fact]
+    public void Restore_FarFutureLock_IsClampedToLockDuration()
+    {
+        var clock = new FakeClock();
+        var t = new LoginThrottle(clock);
+        t.Restore(0, clock.UtcNow.AddDays(30));
+        Assert.Equal(clock.UtcNow.AddMinutes(5), t.LockedUntil);
+    }
+
+    [Fact]
+    public void Restore_FailuresAtCap_WithoutLockedUntil_DerivesLock()
+    {
+        var clock = new FakeClock();
+        var t = new LoginThrottle(clock);
+        t.Restore(5, null);
+        Assert.True(t.IsLocked);
+    }
+}

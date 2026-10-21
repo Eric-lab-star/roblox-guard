@@ -30,3 +30,35 @@ public class PasswordHasherTests
         Assert.Equal(32, Convert.FromBase64String(r.Hash).Length);
     }
 }
+
+public class PasswordHasherHardeningTests
+{
+    [Fact]
+    public void Verify_EmptyHash_Fails()
+    {
+        var r = PasswordHasher.Hash("x") with { Hash = "" };
+        Assert.False(PasswordHasher.Verify("x", r));
+    }
+
+    [Fact]
+    public void Verify_TruncatedHash_Fails()
+    {
+        var r = PasswordHasher.Hash("x");
+        var truncated = r with { Hash = Convert.ToBase64String(Convert.FromBase64String(r.Hash)[..8]) };
+        Assert.False(PasswordHasher.Verify("x", truncated));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(99_999)]
+    [InlineData(5_000_000)]
+    public void Verify_IterationsOutOfRange_Fails(int iterations)
+    {
+        var r = PasswordHasher.Hash("x") with { Iterations = iterations };
+        Assert.False(PasswordHasher.Verify("x", r));
+    }
+
+    [Fact]
+    public void Verify_InvalidBase64_Fails()
+        => Assert.False(PasswordHasher.Verify("x", new PasswordRecord("!!", "!!", 100_000)));
+}

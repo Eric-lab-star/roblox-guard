@@ -45,9 +45,17 @@ public sealed class LoginThrottle
         LockedUntil = null;
     }
 
+    /// <summary>
+    /// 저장된 상태를 복원한다. 잠금 만료 시각은 최대 잠금 길이로 클램프하고,
+    /// 실패 횟수가 이미 상한이면 잠금 시각이 없어도 잠근다.
+    /// </summary>
     public void Restore(int failedAttempts, DateTimeOffset? lockedUntil)
     {
         FailedAttempts = Math.Max(0, failedAttempts);
-        LockedUntil = lockedUntil;
+        var maxUntil = _clock.UtcNow.Add(_lockDuration);
+        if (lockedUntil is { } until)
+            LockedUntil = until > maxUntil ? maxUntil : until;
+        else
+            LockedUntil = FailedAttempts >= _maxFailures ? maxUntil : null;
     }
 }

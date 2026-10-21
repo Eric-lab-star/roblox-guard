@@ -8,6 +8,8 @@ public sealed record PasswordRecord(string Salt, string Hash, int Iterations);
 public static class PasswordHasher
 {
     public const int DefaultIterations = 100_000;
+    public const int MinIterations = 100_000;
+    public const int MaxIterations = 2_000_000;
     private const int SaltBytes = 16;
     private const int HashBytes = 32;
 
@@ -18,8 +20,11 @@ public static class PasswordHasher
         return new PasswordRecord(Convert.ToBase64String(salt), Convert.ToBase64String(hash), DefaultIterations);
     }
 
+    /// <summary>저장된 레코드가 길이·반복 횟수 규격에 맞지 않으면 무조건 false (fail closed).</summary>
     public static bool Verify(string password, PasswordRecord record)
     {
+        if (record is null || string.IsNullOrEmpty(record.Salt) || string.IsNullOrEmpty(record.Hash)) return false;
+        if (record.Iterations < MinIterations || record.Iterations > MaxIterations) return false;
         byte[] salt, expected;
         try
         {
@@ -30,8 +35,8 @@ public static class PasswordHasher
         {
             return false;
         }
-        if (record.Iterations <= 0) return false;
-        var actual = Derive(password, salt, record.Iterations, expected.Length);
+        if (salt.Length != SaltBytes || expected.Length != HashBytes) return false;
+        var actual = Derive(password, salt, record.Iterations, HashBytes);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
