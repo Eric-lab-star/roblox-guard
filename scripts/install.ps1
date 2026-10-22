@@ -1,7 +1,8 @@
-#requires -Version 7.0
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
   RobloxGuard 를 설치한다. dist\ 안에서 관리자 권한으로 실행한다.
+  받는 사람 PC 의 기본 Windows PowerShell 5.1 에서 바로 돈다(별도 설치 불필요).
 .DESCRIPTION
   서비스 등록(LocalSystem, 자동 시작, 실패 시 재시작), 데이터 폴더 ACL 설정,
   부모 비밀번호 설정, 트레이 자동 실행 등록까지 한다.

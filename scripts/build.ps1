@@ -1,4 +1,4 @@
-#requires -Version 7.0
+﻿#requires -Version 7.0
 <#
 .SYNOPSIS
   세 실행 파일을 자체 포함(.NET 불필요)으로 dist\ 에 발행하고 스크립트·README 를 복사한다.

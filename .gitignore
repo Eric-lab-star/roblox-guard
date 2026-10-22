@@ -8,3 +8,4 @@ dist/
 TestResults/
 # plan workspace (scratch)
 .superpowers/
+release/

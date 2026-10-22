@@ -21,7 +21,28 @@
 3. 아이 계정을 고르고 `계정 유형 변경 > 표준 사용자` 로 바꿉니다.
 4. 관리자 계정에는 아이가 모르는 비밀번호가 걸려 있어야 합니다.
 
-## 설치
+## 설치 — 받는 사람(부모)용
+
+배포용 ZIP(`RobloxGuard-vX.Y.Z.zip`) 하나만 있으면 됩니다. 대상 PC에
+.NET 이나 PowerShell 7 을 따로 깔 필요가 없습니다(자체 포함 빌드 +
+Windows 기본 PowerShell 5.1 에서 동작).
+
+1. ZIP 을 마우스 오른쪽 클릭 → **압축 풀기** (ZIP 안에서 바로 실행 금지).
+2. 풀린 폴더에서 **`Install.cmd` 더블클릭**.
+3. "사용자 계정 컨트롤" 창에서 **예** → 이어서 부모 비밀번호 설정(4자 이상).
+
+`Install.cmd` 가 자동으로 관리자 권한을 요청하고 `install.ps1` 을 실행합니다.
+설치 스크립트가 하는 일: 서비스 등록(LocalSystem, 자동 시작, 실패 시 재시작),
+데이터 폴더 권한 제한, 부모 비밀번호 설정, 트레이 자동 실행 등록.
+제거는 같은 폴더의 **`Uninstall.cmd`**. 자세한 안내는 ZIP 속 `설치방법.txt`.
+
+> **Windows 경고는 정상입니다.** 개인 서명(코드 서명 인증서) 없이 배포하므로
+> 처음 실행 시 "Windows의 PC 보호"(SmartScreen) 창이 뜰 수 있습니다 →
+> **추가 정보 → 실행**. 백신이 프로세스 강제 종료·입력 잠금 동작을 의심해
+> 격리하면 **Windows 보안 > 보호 기록**에서 허용/복원하세요. 깨끗하게
+> 설치되게 하려면 코드 서명 인증서가 필요합니다("배포" 아래 참고).
+
+## 배포 — 패키지 만드는 사람(개발자)용
 
 개발 PC에 .NET 8 SDK가 필요합니다. 없으면:
 
@@ -29,21 +50,36 @@
 winget install --id Microsoft.DotNet.SDK.8 -e
 ```
 
-빌드와 설치:
+배포용 ZIP 만들기:
 
 ```powershell
-# 1) 저장소에서 자체 포함 실행 파일을 dist\ 로 발행 (관리자 불필요)
-pwsh -File scripts\build.ps1
-
-# 2) 관리자 PowerShell 에서 설치
-cd dist
-.\install.ps1
+# 테스트 → 세 실행 파일 발행 → pdb 제거 → 런처·안내문 포함 → ZIP 압축
+pwsh -File scripts\package.ps1
+# 결과: release\RobloxGuard-v<버전>.zip  (SHA256 지문도 출력)
 ```
 
-설치 스크립트가 하는 일: 서비스 등록(LocalSystem, 자동 시작, 실패 시 재시작),
-데이터 폴더 권한 제한, 부모 비밀번호 설정, 트레이 자동 실행 등록.
-발행된 `dist\` 폴더만 대상 PC로 복사해 거기서 `install.ps1` 을 실행해도 됩니다.
-대상 PC에는 .NET이 없어도 됩니다(자체 포함 빌드).
+이 ZIP 을 상대 부모에게 전달하면 됩니다(위 "받는 사람용" 절차대로). 버전은
+`Directory.Build.props` 의 `<Version>` 에서 읽습니다. 이미 `dist\` 에 발행본이
+있으면 `pwsh -File scripts\package.ps1 -SkipBuild` 로 다시 빌드하지 않고
+포장만 합니다.
+
+직접 빌드만 하려면 `pwsh -File scripts\build.ps1` (관리자 불필요) 로 `dist\`
+에 발행하고, 그 폴더에서 `Install.cmd` 를 실행해도 됩니다.
+
+### 선택: 코드 서명 (SmartScreen 경고 없애기)
+
+인증서가 있으면 발행된 세 exe 에 서명해 두면 받는 사람의 경고가 크게
+줄어듭니다. 표준 인증서는 평판이 쌓이기 전까지 SmartScreen 이 남을 수
+있고, EV 인증서는 처음부터 깨끗합니다.
+
+```powershell
+# 예시 (인증서 .pfx 보유 시)
+foreach ($e in "RobloxGuard.Service","RobloxGuard.Tray","RobloxGuard.Lockout") {
+  signtool sign /f cert.pfx /p <암호> /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "dist\$e.exe"
+}
+```
+
+서명 후 `package.ps1 -SkipBuild` 로 포장하면 서명된 exe 가 ZIP 에 담깁니다.
 
 ## 사용법
 
