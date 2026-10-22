@@ -31,10 +31,19 @@ public sealed class AttemptLog
         var line = JsonSerializer.Serialize(entry, JsonFile.Options) + "\n";
         lock (_gate)
         {
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(_path))!);
-            using var fs = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-            using var w = new StreamWriter(fs);
-            w.Write(line);
+            try
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(_path))!);
+                using var fs = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                using var w = new StreamWriter(fs);
+                w.Write(line);
+            }
+            catch (Exception)
+            {
+                // 기록은 보조 기능이다. 쓰기가 실패해도(권한·경로·잠금 등) 예외를 밖으로
+                // 내지 않는다. 밖으로 내면 GuardEngine.Start → ProcessWatcher.StartAsync 로
+                // 전파돼 서비스 시작이 통째로 실패하고 파이프(트레이 제어 채널)까지 죽는다.
+            }
         }
     }
 

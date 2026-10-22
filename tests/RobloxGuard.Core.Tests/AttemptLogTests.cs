@@ -15,6 +15,23 @@ public class AttemptLogTests : IDisposable
         => new(ts, type, "kid", "RobloxPlayerBeta", @"C:\x\RobloxPlayerBeta.exe", null);
 
     [Fact]
+    public void Append_DoesNotThrow_WhenPathUnwritable()
+    {
+        // 로깅은 보조 기능이다. 쓰기가 실패해도(예: 권한/경로 문제) 예외를 밖으로
+        // 내면 GuardEngine.Start → ProcessWatcher.StartAsync 로 전파돼 서비스 전체가
+        // 시작 실패한다(파이프 포함). 따라서 Append 는 삼켜야 한다(fail-safe).
+        // 부모가 '파일'인 경로 → 디렉터리 생성/파일 열기가 반드시 실패한다.
+        var file = Path.Combine(_dir.FullName, "a-file");
+        File.WriteAllText(file, "x");
+        var badPath = Path.Combine(file, "attempts.log");
+        var log = new AttemptLog(badPath);
+
+        var ex = Record.Exception(() => log.Append(E(T0)));
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public void Append_ThenReadSince_RoundTrips()
     {
         var log = new AttemptLog(LogPath);

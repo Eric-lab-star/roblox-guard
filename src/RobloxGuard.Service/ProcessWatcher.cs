@@ -26,7 +26,11 @@ public sealed class ProcessWatcher : BackgroundService
 
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        _engine.Start();
+        // 엔진 시작(기록·네트워크 적용)이 실패해도 호스트 시작을 막지 않는다.
+        // 여기서 예외가 올라가면 뒤따르는 호스티드 서비스(파이프 등)가 시작되지 못해
+        // 트레이가 영영 연결할 수 없게 된다. 차단(프로세스 종료)은 아래 ExecuteAsync 가 맡는다.
+        try { _engine.Start(); }
+        catch (Exception ex) { _log.LogError(ex, "엔진 시작 실패 — 계속 진행(프로세스 차단은 유지)"); }
         _log.LogInformation("RobloxGuard 시작. 모드={Mode}", _engine.Mode);
         return base.StartAsync(cancellationToken);
     }

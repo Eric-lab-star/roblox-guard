@@ -37,9 +37,11 @@ builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<WindowsLockoutLauncher>().LockoutEnded += engine.OnLockoutEnded;
     return engine;
 });
+// PipeServer 를 가장 먼저 등록한다: 제어 채널(트레이 연결)이 다른 시작 작업보다
+// 먼저 올라오게 해, 엔진/네트워크 시작에 문제가 있어도 부모가 항상 연결할 수 있다.
+builder.Services.AddHostedService<PipeServer>();
 builder.Services.AddHostedService<ProcessWatcher>();
 builder.Services.AddHostedService<MaintenanceService>();
-builder.Services.AddHostedService<PipeServer>();
 
 var host = builder.Build();
 host.Services.GetRequiredService<GuardEngine>(); // LockoutEnded 연결을 위해 미리 생성
