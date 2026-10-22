@@ -9,3 +9,6 @@ TestResults/
 # plan workspace (scratch)
 .superpowers/
 release/
+
+# 세션 작업 노트(내부용, 공개 안 함)
+NOTES.md

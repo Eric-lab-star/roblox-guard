@@ -6,14 +6,17 @@ namespace RobloxGuard.Lockout;
 internal sealed class LockoutForm : Form
 {
     private readonly bool _primary;
+    private readonly bool _preview;
     private readonly Label? _countdown;
     private bool _closeAllowed;
 
     public void AllowClose() => _closeAllowed = true;
 
-    public LockoutForm(Screen screen, int seconds, bool primary)
+    public LockoutForm(Screen screen, int seconds, bool primary, bool preview = false)
     {
         _primary = primary;
+        _preview = preview;
+        if (preview) _closeAllowed = true;  // 미리보기는 ESC/Alt+F4 로 자유롭게 닫히게
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
         Bounds = screen.Bounds;
@@ -75,7 +78,7 @@ internal sealed class LockoutForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        Cursor.Hide();
+        if (!_preview) Cursor.Hide();   // 미리보기에서는 커서를 숨기지 않는다
         if (_primary) NativeMethods.SetForegroundWindow(Handle);
     }
 
