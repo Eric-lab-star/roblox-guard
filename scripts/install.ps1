@@ -88,16 +88,26 @@ if (Test-Path $configPath) {
     $needPassword = ($answer -eq "y" -or $answer -eq "Y")
 }
 if ($needPassword) {
-    while ($true) {
-        $p1 = Read-Host "부모 비밀번호 (4자 이상)" -AsSecureString
-        $p2 = Read-Host "비밀번호 확인" -AsSecureString
-        $s1 = [Runtime.InteropServices.Marshal]::PtrToStringUni([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1))
-        $s2 = [Runtime.InteropServices.Marshal]::PtrToStringUni([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2))
-        if ($s1 -ne $s2)      { Write-Host "일치하지 않습니다. 다시." -ForegroundColor Yellow; continue }
-        if ($s1.Length -lt 4) { Write-Host "4자 이상이어야 합니다. 다시." -ForegroundColor Yellow; continue }
-        $s1 | & $serviceExe set-password
-        if ($LASTEXITCODE -ne 0) { Write-Host "비밀번호 저장 실패. 다시." -ForegroundColor Yellow; continue }
-        break
+    # 서비스는 stdin 을 UTF-8(BOM 없음)로 읽는다. PowerShell 이 네이티브 명령 stdin 으로
+    # 보낼 때 쓰는 인코딩([Console]::OutputEncoding)을 UTF-8 로 맞춰 한글 비밀번호가
+    # 깨지지 않게 한다. (Windows PowerShell 5.1 기본값은 OEM 코드페이지)
+    $prevEnc = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    try {
+        while ($true) {
+            $p1 = Read-Host "부모 비밀번호 (4자 이상)" -AsSecureString
+            $p2 = Read-Host "비밀번호 확인" -AsSecureString
+            $s1 = [Runtime.InteropServices.Marshal]::PtrToStringUni([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1))
+            $s2 = [Runtime.InteropServices.Marshal]::PtrToStringUni([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2))
+            if ($s1 -ne $s2)      { Write-Host "일치하지 않습니다. 다시." -ForegroundColor Yellow; continue }
+            if ($s1.Length -lt 4) { Write-Host "4자 이상이어야 합니다. 다시." -ForegroundColor Yellow; continue }
+            $s1 | & $serviceExe set-password
+            if ($LASTEXITCODE -ne 0) { Write-Host "비밀번호 저장 실패. 다시." -ForegroundColor Yellow; continue }
+            break
+        }
+    }
+    finally {
+        [Console]::OutputEncoding = $prevEnc
     }
 }
 

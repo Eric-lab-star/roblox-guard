@@ -57,7 +57,11 @@ static void Safe(Action action, ILogger log, string what)
 /// <summary>stdin 에서 한 줄을 읽어 비밀번호 해시를 config.json 에 기록한다. 설치 스크립트가 호출한다.</summary>
 static int SetPassword()
 {
-    var pw = Console.In.ReadLine()?.TrimEnd('\r', '\n');
+    // stdin 을 UTF-8(BOM 없음)로 명시적으로 읽는다. 로그인 경로(트레이→파이프 JSON)도
+    // UTF-8 이므로, 설치 때 저장하는 해시와 로그인 때 비교하는 해시가 같은 바이트열에서
+    // 나온다. Console.InputEncoding 기본값은 OEM 코드페이지라 한글 비밀번호가 깨졌다.
+    using var stdin = new StreamReader(Console.OpenStandardInput(), new System.Text.UTF8Encoding(false));
+    var pw = stdin.ReadLine()?.TrimEnd('\r', '\n');
     if (string.IsNullOrEmpty(pw) || pw.Length < 4)
     {
         Console.Error.WriteLine("비밀번호는 4자 이상이어야 합니다.");
